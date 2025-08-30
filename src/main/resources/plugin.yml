@@ -1,0 +1,28 @@
+name: Chained-Life
+version: '1.0-SNAPSHOT'
+main: com.ollie.blueprint.ChainedLife
+api-version: '1.21'
+commands:
+  switchpartner:
+    description: Switch your chained life partner
+    usage: /switchpartner
+  setpartners:
+    description: Set the partners for Chained-Life
+    usage: /setpartners
+    permission: chainedlife.setpartners
+
+permissions:
+  chainedlife.*:
+    description: Gives access to all ChainedLife commands
+    default: op
+    children:
+      chainedlife.switchpartner: true
+      chainedlife.setpartners: true
+
+  chainedlife.switchpartner:
+    description: Allows using /switchpartner
+    default: true
+
+  chainedlife.setpartners:
+    description: Allows using /setpartners
+    default: op
