@@ -25,17 +25,23 @@ public class PartnerManager {
     }
 
     private void syncPotionEffectsExact(Player source, Player target) {
+        // Snapshot of source effects
         Map<PotionEffectType, PotionEffect> sourceEffects = new HashMap<>();
         for (PotionEffect effect : source.getActivePotionEffects()) {
             sourceEffects.put(effect.getType(), effect);
         }
 
-        for (PotionEffect targetEffect : new ArrayList<>(target.getActivePotionEffects())) {
+        // Snapshot of target effects
+        List<PotionEffect> targetEffects = new ArrayList<>(target.getActivePotionEffects());
+
+        // Remove effects not present in source
+        for (PotionEffect targetEffect : targetEffects) {
             if (!sourceEffects.containsKey(targetEffect.getType())) {
                 target.removePotionEffect(targetEffect.getType());
             }
         }
 
+        // Add or update effects from source
         for (PotionEffect sourceEffect : sourceEffects.values()) {
             PotionEffect current = target.getPotionEffect(sourceEffect.getType());
             if (current == null
@@ -44,7 +50,14 @@ public class PartnerManager {
                     || current.isAmbient() != sourceEffect.isAmbient()
                     || current.hasParticles() != sourceEffect.hasParticles()
                     || current.hasIcon() != sourceEffect.hasIcon()) {
-                target.addPotionEffect(sourceEffect, true);
+                target.addPotionEffect(new PotionEffect(
+                        sourceEffect.getType(),
+                        sourceEffect.getDuration(),
+                        sourceEffect.getAmplifier(),
+                        sourceEffect.isAmbient(),
+                        sourceEffect.hasParticles(),
+                        sourceEffect.hasIcon()
+                ), true);
             }
         }
     }
