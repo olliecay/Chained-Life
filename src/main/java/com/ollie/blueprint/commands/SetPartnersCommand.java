@@ -3,6 +3,7 @@ package com.ollie.blueprint.commands;
 import com.ollie.blueprint.ChainedLife;
 import com.ollie.blueprint.managers.PartnerManager;
 import org.bukkit.Bukkit;
+import org.bukkit.Sound;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -56,6 +57,7 @@ public class SetPartnersCommand implements CommandExecutor {
 
                 Player randomCandidate = online.get(random.nextInt(online.size()));
                 player.sendTitle("§aChoosing partner...", "§e" + randomCandidate.getName(), 0, 5, 0);
+                player.playSound(player.getLocation(), Sound.ITEM_TOTEM_USE, 1.0f, 1.0f + (ticks / 40.0f));
 
                 ticks += 4;
             }

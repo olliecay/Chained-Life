@@ -1,14 +1,11 @@
 package com.ollie.blueprint.listeners;
 
-import com.destroystokyo.paper.MaterialTags;
 import org.bukkit.Material;
-import org.bukkit.Tag;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.enchantment.EnchantItemEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.persistence.PersistentDataType;
 
 public class EnchantItemListener implements Listener {
 

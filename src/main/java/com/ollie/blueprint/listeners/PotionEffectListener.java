@@ -16,7 +16,9 @@ public class PotionEffectListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPotionEffect(EntityPotionEffectEvent event) {
-        if (event.getEntity() instanceof Player player) {
+        if (!(event.getEntity() instanceof Player player)) return;
+
+        if (!partnerManager.isSyncing(player)) {
             partnerManager.mirrorState(player);
         }
     }

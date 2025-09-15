@@ -12,15 +12,45 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class PartnerManager {
 
+    private static final ThreadLocal<Boolean> syncing = ThreadLocal.withInitial(() -> false);
     private final int defaultLives;
     private final Map<UUID, UUID> partners = new HashMap<>();
     private final Map<UUID, Integer> lives = new HashMap<>();
-    private final Set<UUID> inSync = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Set<UUID> inSync = ConcurrentHashMap.newKeySet();
     private final ChainedLife plugin;
 
     public PartnerManager(int defaultLives, ChainedLife plugin) {
         this.defaultLives = defaultLives;
         this.plugin = plugin;
+    }
+
+    private void syncPotionEffectsExact(Player source, Player target) {
+        Map<PotionEffectType, PotionEffect> sourceEffects = new HashMap<>();
+        for (PotionEffect effect : source.getActivePotionEffects()) {
+            sourceEffects.put(effect.getType(), effect);
+        }
+
+        for (PotionEffect targetEffect : new ArrayList<>(target.getActivePotionEffects())) {
+            if (!sourceEffects.containsKey(targetEffect.getType())) {
+                target.removePotionEffect(targetEffect.getType());
+            }
+        }
+
+        for (PotionEffect sourceEffect : sourceEffects.values()) {
+            PotionEffect current = target.getPotionEffect(sourceEffect.getType());
+            if (current == null
+                    || current.getDuration() != sourceEffect.getDuration()
+                    || current.getAmplifier() != sourceEffect.getAmplifier()
+                    || current.isAmbient() != sourceEffect.isAmbient()
+                    || current.hasParticles() != sourceEffect.hasParticles()
+                    || current.hasIcon() != sourceEffect.hasIcon()) {
+                target.addPotionEffect(sourceEffect, true);
+            }
+        }
+    }
+
+    public boolean isSyncing(Player player) {
+        return inSync.contains(player.getUniqueId());
     }
 
     public void addPlayer(Player player) {
@@ -92,11 +122,23 @@ public class PartnerManager {
         Player target = getPartner(source);
         if (target == null) return;
 
-        if (!inSync.add(source.getUniqueId())) return;
+        UUID srcId = source.getUniqueId();
+        if (!inSync.add(srcId)) return;
+
         try {
             syncFromTo(source, target);
+
+            if (!source.getActivePotionEffects().isEmpty() || !target.getActivePotionEffects().isEmpty()) {
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    try {
+                        syncPotionEffectsExact(source, target);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                });
+            }
         } finally {
-            inSync.remove(source.getUniqueId());
+            inSync.remove(srcId);
         }
     }
 
@@ -110,12 +152,12 @@ public class PartnerManager {
         double finalHealth = Math.min(srcRounded, Math.min(srcMax, tgtMax));
 
         if (Math.abs(tgtRounded - finalHealth) >= 0.5) {
-            target.setNoDamageTicks(1);
+            target.setNoDamageTicks(10);
             target.setHealth(finalHealth);
         }
 
         if (Math.abs(srcRounded - finalHealth) >= 0.5) {
-            source.setNoDamageTicks(1);
+            source.setNoDamageTicks(10);
             source.setHealth(finalHealth);
         }
 
@@ -129,41 +171,4 @@ public class PartnerManager {
 
         syncPotionEffectsExact(source, target);
     }
-
-    private void syncPotionEffectsExact(Player source, Player target) {
-        Set<PotionEffectType> srcTypes = new HashSet<>();
-        for (PotionEffect e : source.getActivePotionEffects()) {
-            srcTypes.add(e.getType());
-        }
-
-        Set<PotionEffectType> tgtTypes = new HashSet<>();
-        for (PotionEffect e : target.getActivePotionEffects()) {
-            tgtTypes.add(e.getType());
-        }
-
-        List<PotionEffectType> toRemove = new ArrayList<>();
-        for (PotionEffectType type : tgtTypes) {
-            if (!srcTypes.contains(type)) {
-                toRemove.add(type);
-            }
-        }
-
-        for (PotionEffectType type : toRemove) {
-            target.removePotionEffect(type);
-        }
-
-        for (PotionEffect src : source.getActivePotionEffects()) {
-            PotionEffect clone = new PotionEffect(
-                    src.getType(),
-                    src.getDuration(),
-                    src.getAmplifier(),
-                    src.isAmbient(),
-                    src.hasParticles(),
-                    src.hasIcon()
-            );
-            target.addPotionEffect(clone, true);
-        }
-    }
-
-
 }
