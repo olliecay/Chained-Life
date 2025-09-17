@@ -1,5 +1,5 @@
 name: Chained-Life
-version: '1.0-SNAPSHOT'
+version: '2.0.0'
 main: com.ollie.blueprint.ChainedLife
 api-version: '1.21'
 commands:
@@ -10,6 +10,10 @@ commands:
     description: Set the partners for Chained-Life
     usage: /setpartners
     permission: chainedlife.setpartners
+  endsession:
+    description: End a chained life session
+    usage: /endsession
+    permission: chainedlife.endsession
 
 permissions:
   chainedlife.*:
@@ -18,11 +22,16 @@ permissions:
     children:
       chainedlife.switchpartner: true
       chainedlife.setpartners: true
+      chainedlife.endsession: true
 
   chainedlife.switchpartner:
     description: Allows using /switchpartner
-    default: true
+    default: op
 
   chainedlife.setpartners:
     description: Allows using /setpartners
+    default: op
+
+  chainedlife.endsession:
+    description: Allows use of /endsession
     default: op

@@ -2,6 +2,7 @@ package com.ollie.blueprint.listeners;
 
 import com.ollie.blueprint.ChainedLife;
 import com.ollie.blueprint.managers.PartnerManager;
+import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -23,11 +24,14 @@ public class RespawnListener implements Listener {
     public void onRespawn(PlayerRespawnEvent event) {
         Player player = event.getPlayer();
 
-        player.removeMetadata("deathHandled", plugin);
+//        player.removeMetadata("deathHandled", plugin);
 
         if (partnerManager.getLives(player) <= 0) {
-            player.setGameMode(GameMode.SPECTATOR);
-            player.sendMessage("§cYou are out of lives!");
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline()) {
+                    player.setGameMode(GameMode.SPECTATOR);
+                }
+            }, 2L);
             return;
         }
 
@@ -35,6 +39,20 @@ public class RespawnListener implements Listener {
         player.setFoodLevel(20);
         player.setSaturation(20);
 
-        partnerManager.mirrorState(player);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            Player partner = partnerManager.getPartner(player);
+            if (partner != null && partner.isOnline() && partnerManager.getLives(partner) > 0) {
+                partner.teleport(player.getLocation());
+
+                partnerManager.mirrorState(player);
+                partnerManager.enforceDistance(player);
+
+                String cmd = String.format("chain %s %s", player.getName(), partner.getName());
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
+            } else {
+                partnerManager.mirrorState(player);
+            }
+        }, 5L);
+
     }
 }

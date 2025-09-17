@@ -25,6 +25,11 @@ public class SetPartnersCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!sender.isOp()) {
+            sender.sendMessage("§cYou do not have permission to use this command!");
+            return true;
+        }
+
         if (!(sender instanceof Player player)) {
             sender.sendMessage("§cOnly players can use this command!");
             return true;
@@ -41,25 +46,57 @@ public class SetPartnersCommand implements CommandExecutor {
         new BukkitRunnable() {
             final Random random = new Random();
             int ticks = 0;
+            Player lastCandidate = null;
 
             @Override
             public void run() {
                 if (ticks >= 40) {
-                    Player partner = online.get(random.nextInt(online.size()));
+                    Player partner = lastCandidate;
 
-                    player.sendTitle("§aYour partner is...", "§e" + partner.getName(), 10, 60, 20);
+                    for (Player viewer : Bukkit.getOnlinePlayers()) {
+                        String resultLine;
+
+                        if (viewer.equals(player)) {
+                            resultLine = "§eYou ↔ " + partner.getName();
+                        } else if (viewer.equals(partner)) {
+                            resultLine = "§eYou ↔ " + player.getName();
+                        } else {
+                            resultLine = "§e" + player.getName() + " ↔ " + partner.getName();
+                        }
+
+                        viewer.sendTitle("§aPartner Selected!", resultLine, 10, 60, 20);
+                        viewer.playSound(viewer.getLocation(), Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
+                    }
 
                     partnerManager.switchPartner(player);
+
+                    Player newPartner = partnerManager.getPartner(player);
+                    if (newPartner != null && newPartner.isOnline()) {
+                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "team join Green " + player.getName());
+                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "team join Green " + newPartner.getName());
+                    }
 
                     cancel();
                     return;
                 }
 
-                Player randomCandidate = online.get(random.nextInt(online.size()));
-                player.sendTitle("§aChoosing partner...", "§e" + randomCandidate.getName(), 0, 5, 0);
-                player.playSound(player.getLocation(), Sound.ITEM_TOTEM_USE, 1.0f, 1.0f + (ticks / 40.0f));
+                lastCandidate = online.get(random.nextInt(online.size()));
+                for (Player viewer : Bukkit.getOnlinePlayers()) {
+                    String rollingLine;
 
-                ticks += 4;
+                    if (viewer.equals(player)) {
+                        rollingLine = "§eYou ↔ " + lastCandidate.getName();
+                    } else if (viewer.equals(lastCandidate)) {
+                        rollingLine = "§eYou ↔ " + player.getName();
+                    } else {
+                        rollingLine = "§e" + player.getName() + " ↔ " + lastCandidate.getName();
+                    }
+
+                    viewer.sendTitle("§aChoosing partner...", rollingLine, 0, 5, 0);
+                    viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.8f, 1.0f);
+                }
+
+                ticks++;
             }
         }.runTaskTimer(plugin, 0L, 4L);
 

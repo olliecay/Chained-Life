@@ -10,12 +10,16 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.event.player.PlayerRespawnEvent;
+
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 
 public class DeathListener implements Listener {
-
     private final PartnerManager partnerManager;
     private final ChainedLife plugin;
+    private final Set<UUID> handledDeaths = new HashSet<>();
 
     public DeathListener(PartnerManager partnerManager, ChainedLife plugin) {
         this.partnerManager = partnerManager;
@@ -26,33 +30,61 @@ public class DeathListener implements Listener {
     public void onDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
 
-        if (player.hasMetadata("deathHandled")) return;
-        player.setMetadata("deathHandled", new FixedMetadataValue(plugin, true));
+        if (!handledDeaths.add(player.getUniqueId())) {
+            Bukkit.getLogger().info("[ChainedLife] Skipping duplicate death handling for " + player.getName());
+            return;
+        }
 
         partnerManager.reduceLives(player);
         int remainingLives = partnerManager.getLives(player);
+
+        Bukkit.getLogger().info("[ChainedLife] Handling death for " + player.getName() +
+                " | Remaining lives: " + remainingLives);
 
         Bukkit.getOnlinePlayers().forEach(p -> {
             p.sendTitle("§cA life was taken...", "§7" + player.getName() + " lost a life!", 10, 70, 20);
             p.playSound(p.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1f, 1f);
         });
-        player.getWorld().strikeLightningEffect(player.getLocation());
 
         Player partner = partnerManager.getPartner(player);
 
-        if (partner != null && partner.isOnline() && !partner.isDead()) {
-            partner.setMetadata("deathHandled", new FixedMetadataValue(plugin, true));
-            partner.setHealth(0.0);
+        if (partner != null && partner.isOnline() && !handledDeaths.contains(partner.getUniqueId())) {
+            handledDeaths.add(partner.getUniqueId());
+            Bukkit.getLogger().info("[ChainedLife] Killing partner " + partner.getName() + " due to " + player.getName() + "'s death");
+            Bukkit.getScheduler().runTask(plugin, () -> partner.setHealth(0.0));
+        }
+
+        String team = switch (remainingLives) {
+            case 3 -> "Green";
+            case 2 -> "Yellow";
+            case 1 -> "Red";
+            default -> null;
+        };
+
+        if (team != null) {
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "team join " + team + " " + player.getName());
+            if (partner != null && partner.isOnline()) {
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "team join " + team + " " + partner.getName());
+            }
         }
 
         if (remainingLives <= 0) {
-            player.setGameMode(GameMode.SPECTATOR);
-            player.sendMessage("§cYou are out of lives!");
-
-            if (partner != null && partner.isOnline()) {
-                partner.setGameMode(GameMode.SPECTATOR);
-                partner.sendMessage("§cYour partner ran out of lives too!");
-            }
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline()) {
+                    player.setGameMode(GameMode.SPECTATOR);
+                    player.sendMessage("§cYou are out of lives!");
+                    player.getWorld().strikeLightningEffect(player.getLocation());
+                }
+                if (partner != null && partner.isOnline()) {
+                    partner.setGameMode(GameMode.SPECTATOR);
+                    partner.sendMessage("§cYou are out of lives!");
+                }
+            }, 3L);
         }
+    }
+
+    @EventHandler
+    public void onRespawn(PlayerRespawnEvent event) {
+        handledDeaths.remove(event.getPlayer().getUniqueId());
     }
 }

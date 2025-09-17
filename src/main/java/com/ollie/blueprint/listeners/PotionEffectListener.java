@@ -6,6 +6,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPotionEffectEvent;
+import org.bukkit.potion.PotionEffect;
 
 public class PotionEffectListener implements Listener {
     private final PartnerManager partnerManager;
@@ -18,8 +19,22 @@ public class PotionEffectListener implements Listener {
     public void onPotionEffect(EntityPotionEffectEvent event) {
         if (!(event.getEntity() instanceof Player player)) return;
 
-        if (!partnerManager.isSyncing(player)) {
-            partnerManager.mirrorState(player);
+        Player partner = partnerManager.getPartner(player);
+        if (partner == null) return;
+
+        if (partnerManager.isSyncing(partner)) return;
+
+        partnerManager.beginSync(partner);
+        try {
+            PotionEffect newEffect = event.getNewEffect();
+
+            if (newEffect == null) {
+                partner.removePotionEffect(event.getModifiedType());
+            } else {
+                partner.addPotionEffect(newEffect, true);
+            }
+        } finally {
+            partnerManager.endSync(partner);
         }
     }
 }

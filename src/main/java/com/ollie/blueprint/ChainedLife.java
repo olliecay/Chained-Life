@@ -1,5 +1,6 @@
 package com.ollie.blueprint;
 
+import com.ollie.blueprint.commands.EndSessionCommand;
 import com.ollie.blueprint.commands.SetPartnersCommand;
 import com.ollie.blueprint.commands.SwitchPartnerCommand;
 import com.ollie.blueprint.listeners.*;
@@ -20,6 +21,7 @@ public final class ChainedLife extends JavaPlugin {
 
         getCommand("switchpartner").setExecutor(new SwitchPartnerCommand(partnerManager));
         getCommand("setpartners").setExecutor(new SetPartnersCommand(partnerManager, this));
+        getCommand("endsession").setExecutor(new EndSessionCommand(partnerManager, this));
 
         getServer().getPluginManager().registerEvents(new DeathListener(partnerManager, this), this);
         getServer().getPluginManager().registerEvents(new RespawnListener(partnerManager, this), this);
@@ -29,9 +31,9 @@ public final class ChainedLife extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new FoodLevelChangeListener(partnerManager), this);
         getServer().getPluginManager().registerEvents(new PotionEffectListener(partnerManager), this);
 
-        getServer().getPluginManager().registerEvents(new EnchantItemListener(), this);
-        getServer().getPluginManager().registerEvents(new PrepareAnvilListener(), this);
-        getServer().getPluginManager().registerEvents(new PrepareItemEnchantListener(), this);
+//        getServer().getPluginManager().registerEvents(new EnchantItemListener(), this);
+//        getServer().getPluginManager().registerEvents(new PrepareAnvilListener(), this);
+//        getServer().getPluginManager().registerEvents(new PrepareItemEnchantListener(), this);
 
         getServer().getPluginManager().registerEvents(new org.bukkit.event.Listener() {
             @org.bukkit.event.EventHandler

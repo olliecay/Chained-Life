@@ -4,15 +4,13 @@ import com.ollie.blueprint.ChainedLife;
 import org.bukkit.Bukkit;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class PartnerManager {
 
-    private static final ThreadLocal<Boolean> syncing = ThreadLocal.withInitial(() -> false);
+    private final Set<UUID> syncing = new HashSet<>();
     private final int defaultLives;
     private final Map<UUID, UUID> partners = new HashMap<>();
     private final Map<UUID, Integer> lives = new HashMap<>();
@@ -24,46 +22,16 @@ public class PartnerManager {
         this.plugin = plugin;
     }
 
-    private void syncPotionEffectsExact(Player source, Player target) {
-        // Snapshot of source effects
-        Map<PotionEffectType, PotionEffect> sourceEffects = new HashMap<>();
-        for (PotionEffect effect : source.getActivePotionEffects()) {
-            sourceEffects.put(effect.getType(), effect);
-        }
+    public void beginSync(Player player) {
+        syncing.add(player.getUniqueId());
+    }
 
-        // Snapshot of target effects
-        List<PotionEffect> targetEffects = new ArrayList<>(target.getActivePotionEffects());
-
-        // Remove effects not present in source
-        for (PotionEffect targetEffect : targetEffects) {
-            if (!sourceEffects.containsKey(targetEffect.getType())) {
-                target.removePotionEffect(targetEffect.getType());
-            }
-        }
-
-        // Add or update effects from source
-        for (PotionEffect sourceEffect : sourceEffects.values()) {
-            PotionEffect current = target.getPotionEffect(sourceEffect.getType());
-            if (current == null
-                    || current.getDuration() != sourceEffect.getDuration()
-                    || current.getAmplifier() != sourceEffect.getAmplifier()
-                    || current.isAmbient() != sourceEffect.isAmbient()
-                    || current.hasParticles() != sourceEffect.hasParticles()
-                    || current.hasIcon() != sourceEffect.hasIcon()) {
-                target.addPotionEffect(new PotionEffect(
-                        sourceEffect.getType(),
-                        sourceEffect.getDuration(),
-                        sourceEffect.getAmplifier(),
-                        sourceEffect.isAmbient(),
-                        sourceEffect.hasParticles(),
-                        sourceEffect.hasIcon()
-                ), true);
-            }
-        }
+    public void endSync(Player player) {
+        syncing.remove(player.getUniqueId());
     }
 
     public boolean isSyncing(Player player) {
-        return inSync.contains(player.getUniqueId());
+        return syncing.contains(player.getUniqueId());
     }
 
     public void addPlayer(Player player) {
@@ -101,8 +69,27 @@ public class PartnerManager {
 
         mirrorState(player);
 
+        enforceDistance(player);
+
         String cmd = String.format("chain %s %s", player.getName(), newPartner.getName());
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
+    }
+
+    public void enforceDistance(Player player) {
+        Player partner = getPartner(player);
+        if (partner == null || !partner.isOnline()) return;
+
+        if (!player.getWorld().equals(partner.getWorld())) {
+            partner.teleport(player.getLocation());
+            return;
+        }
+
+        double distance = player.getLocation().distance(partner.getLocation());
+        if (distance > 6) {
+            partner.teleport(player.getLocation());
+            // partner.sendMessage("§eYou were pulled closer to your partner!");
+            // player.sendMessage("§eYour partner was pulled closer to you!");
+        }
     }
 
     public Player getPartner(Player player) {
@@ -132,56 +119,38 @@ public class PartnerManager {
     }
 
     public void mirrorState(Player source) {
-        Player target = getPartner(source);
-        if (target == null) return;
+        Player partner = getPartner(source);
+        if (partner == null) return;
 
-        UUID srcId = source.getUniqueId();
-        if (!inSync.add(srcId)) return;
-
-        try {
-            syncFromTo(source, target);
-
-            if (!source.getActivePotionEffects().isEmpty() || !target.getActivePotionEffects().isEmpty()) {
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    try {
-                        syncPotionEffectsExact(source, target);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                });
-            }
-        } finally {
-            inSync.remove(srcId);
-        }
-    }
-
-    private void syncFromTo(Player source, Player target) {
         double srcMax = source.getAttribute(Attribute.MAX_HEALTH).getValue();
-        double tgtMax = target.getAttribute(Attribute.MAX_HEALTH).getValue();
+        double tgtMax = partner.getAttribute(Attribute.MAX_HEALTH).getValue();
 
         double srcRounded = Math.round(source.getHealth() * 2.0) / 2.0;
-        double tgtRounded = Math.round(target.getHealth() * 2.0) / 2.0;
+        double tgtRounded = Math.round(partner.getHealth() * 2.0) / 2.0;
 
-        double finalHealth = Math.min(srcRounded, Math.min(srcMax, tgtMax));
+        double lowest = Math.min(srcRounded, tgtRounded);
+        double clamped = Math.min(lowest, Math.min(srcMax, tgtMax));
 
-        if (Math.abs(tgtRounded - finalHealth) >= 0.5) {
-            target.setNoDamageTicks(10);
-            target.setHealth(finalHealth);
-        }
-
-        if (Math.abs(srcRounded - finalHealth) >= 0.5) {
+        if (srcRounded > clamped) {
             source.setNoDamageTicks(10);
-            source.setHealth(finalHealth);
+            source.setHealth(clamped);
+        }
+        if (tgtRounded > clamped) {
+            partner.setNoDamageTicks(10);
+            partner.setHealth(clamped);
         }
 
         int finalFood = Math.max(0, Math.min(20, source.getFoodLevel()));
-        if (target.getFoodLevel() != finalFood) target.setFoodLevel(finalFood);
+        if (partner.getFoodLevel() != finalFood) partner.setFoodLevel(finalFood);
         if (source.getFoodLevel() != finalFood) source.setFoodLevel(finalFood);
 
         float finalSat = Math.max(0f, Math.min(finalFood, source.getSaturation()));
-        if (Math.abs(target.getSaturation() - finalSat) > 0.01f) target.setSaturation(finalSat);
+        if (Math.abs(partner.getSaturation() - finalSat) > 0.01f) partner.setSaturation(finalSat);
         if (Math.abs(source.getSaturation() - finalSat) > 0.01f) source.setSaturation(finalSat);
-
-        syncPotionEffectsExact(source, target);
     }
+
+    public void clearPartners() {
+        partners.clear();
+    }
+
 }
