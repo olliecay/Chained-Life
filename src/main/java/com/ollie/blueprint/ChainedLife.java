@@ -30,6 +30,7 @@ public final class ChainedLife extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new HealListener(partnerManager), this);
         getServer().getPluginManager().registerEvents(new FoodLevelChangeListener(partnerManager), this);
         getServer().getPluginManager().registerEvents(new PotionEffectListener(partnerManager), this);
+        getServer().getPluginManager().registerEvents(new SessionListener(partnerManager, this), this);
 
 //        getServer().getPluginManager().registerEvents(new EnchantItemListener(), this);
 //        getServer().getPluginManager().registerEvents(new PrepareAnvilListener(), this);
