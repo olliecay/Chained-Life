@@ -10,7 +10,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -30,6 +29,11 @@ public class DeathListener implements Listener {
     public void onDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
 
+        if (partnerManager.getLives(player) <= 0) {
+            Bukkit.getLogger().info("[ChainedLife] Ignoring death for " + player.getName() + " (0 lives).");
+            return;
+        }
+
         if (!handledDeaths.add(player.getUniqueId())) {
             Bukkit.getLogger().info("[ChainedLife] Skipping duplicate death handling for " + player.getName());
             return;
@@ -47,8 +51,8 @@ public class DeathListener implements Listener {
         });
 
         Player partner = partnerManager.getPartner(player);
-
-        if (partner != null && partner.isOnline() && !handledDeaths.contains(partner.getUniqueId())) {
+        if (partner != null && partner.isOnline() && partnerManager.getLives(partner) > 0 && !handledDeaths.contains(partner.getUniqueId())) {
+            // mark partner handled before killing to avoid recursion
             handledDeaths.add(partner.getUniqueId());
             Bukkit.getLogger().info("[ChainedLife] Killing partner " + partner.getName() + " due to " + player.getName() + "'s death");
             Bukkit.getScheduler().runTask(plugin, () -> partner.setHealth(0.0));
@@ -79,12 +83,23 @@ public class DeathListener implements Listener {
                     partner.setGameMode(GameMode.SPECTATOR);
                     partner.sendMessage("§cYou are out of lives!");
                 }
+
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "unchain " + player.getName());
+                if (partner != null && partner.isOnline()) {
+                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "unchain " + partner.getName());
+                }
+
             }, 3L);
         }
     }
 
     @EventHandler
-    public void onRespawn(PlayerRespawnEvent event) {
-        handledDeaths.remove(event.getPlayer().getUniqueId());
+    public void onRespawn(org.bukkit.event.player.PlayerRespawnEvent event) {
+        Player player = event.getPlayer();
+        if (partnerManager.getLives(player) > 0) {
+            handledDeaths.remove(player.getUniqueId());
+        } else {
+            Bukkit.getLogger().info("[ChainedLife] Keeping " + player.getName() + " marked handled (0 lives).");
+        }
     }
 }

@@ -1,6 +1,7 @@
 package com.ollie.blueprint;
 
 import com.ollie.blueprint.commands.EndSessionCommand;
+import com.ollie.blueprint.commands.LivesCommand;
 import com.ollie.blueprint.commands.SetPartnersCommand;
 import com.ollie.blueprint.commands.SwitchPartnerCommand;
 import com.ollie.blueprint.listeners.*;
@@ -22,6 +23,7 @@ public final class ChainedLife extends JavaPlugin {
         getCommand("switchpartner").setExecutor(new SwitchPartnerCommand(partnerManager));
         getCommand("setpartners").setExecutor(new SetPartnersCommand(partnerManager, this));
         getCommand("endsession").setExecutor(new EndSessionCommand(partnerManager, this));
+        getCommand("lives").setExecutor(new LivesCommand(partnerManager));
 
         getServer().getPluginManager().registerEvents(new DeathListener(partnerManager, this), this);
         getServer().getPluginManager().registerEvents(new RespawnListener(partnerManager, this), this);

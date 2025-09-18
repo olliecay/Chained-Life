@@ -14,6 +14,9 @@ commands:
     description: End a chained life session
     usage: /endsession
     permission: chainedlife.endsession
+  lives:
+    description: Get or set lives for yourself or other players
+    usage: /lives <get|set> [player] [amount]
 
 permissions:
   chainedlife.*:

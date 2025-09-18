@@ -24,8 +24,6 @@ public class RespawnListener implements Listener {
     public void onRespawn(PlayerRespawnEvent event) {
         Player player = event.getPlayer();
 
-//        player.removeMetadata("deathHandled", plugin);
-
         if (partnerManager.getLives(player) <= 0) {
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (player.isOnline()) {
@@ -53,6 +51,5 @@ public class RespawnListener implements Listener {
                 partnerManager.mirrorState(player);
             }
         }, 5L);
-
     }
 }

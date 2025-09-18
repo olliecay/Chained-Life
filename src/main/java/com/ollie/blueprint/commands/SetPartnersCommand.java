@@ -47,15 +47,20 @@ public class SetPartnersCommand implements CommandExecutor {
             final Random random = new Random();
             int ticks = 0;
             Player lastCandidate = null;
+            final int ITERATIONS = 30;
 
             @Override
             public void run() {
-                if (ticks >= 40) {
+                if (ticks >= ITERATIONS) {
                     Player partner = lastCandidate;
+                    if (partner == null || !partner.isOnline()) {
+                        player.sendMessage("§cNo valid partner found.");
+                        cancel();
+                        return;
+                    }
 
                     for (Player viewer : Bukkit.getOnlinePlayers()) {
                         String resultLine;
-
                         if (viewer.equals(player)) {
                             resultLine = "§eYou ↔ " + partner.getName();
                         } else if (viewer.equals(partner)) {
@@ -63,7 +68,6 @@ public class SetPartnersCommand implements CommandExecutor {
                         } else {
                             resultLine = "§e" + player.getName() + " ↔ " + partner.getName();
                         }
-
                         viewer.sendTitle("§aPartner Selected!", resultLine, 10, 60, 20);
                         viewer.playSound(viewer.getLocation(), Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
                     }
@@ -83,7 +87,6 @@ public class SetPartnersCommand implements CommandExecutor {
                 lastCandidate = online.get(random.nextInt(online.size()));
                 for (Player viewer : Bukkit.getOnlinePlayers()) {
                     String rollingLine;
-
                     if (viewer.equals(player)) {
                         rollingLine = "§eYou ↔ " + lastCandidate.getName();
                     } else if (viewer.equals(lastCandidate)) {
@@ -91,7 +94,6 @@ public class SetPartnersCommand implements CommandExecutor {
                     } else {
                         rollingLine = "§e" + player.getName() + " ↔ " + lastCandidate.getName();
                     }
-
                     viewer.sendTitle("§aChoosing partner...", rollingLine, 0, 5, 0);
                     viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.8f, 1.0f);
                 }
@@ -99,7 +101,6 @@ public class SetPartnersCommand implements CommandExecutor {
                 ticks++;
             }
         }.runTaskTimer(plugin, 0L, 4L);
-
         return true;
     }
 }
