@@ -26,7 +26,7 @@ public final class ChainedLife extends JavaPlugin {
         getCommand("lives").setExecutor(new LivesCommand(partnerManager));
 
         getServer().getPluginManager().registerEvents(new DeathListener(partnerManager, this), this);
-        getServer().getPluginManager().registerEvents(new RespawnListener(partnerManager, this), this);
+        getServer().getPluginManager().registerEvents(new RespawnListener(partnerManager, this, new DeathListener(partnerManager, this)), this);
 
         getServer().getPluginManager().registerEvents(new DamageListener(partnerManager), this);
         getServer().getPluginManager().registerEvents(new HealListener(partnerManager), this);
