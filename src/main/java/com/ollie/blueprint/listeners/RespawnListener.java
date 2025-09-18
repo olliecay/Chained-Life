@@ -11,9 +11,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerRespawnEvent;
 
 public class RespawnListener implements Listener {
+
     private final PartnerManager partnerManager;
     private final ChainedLife plugin;
-    private final DeathListener deathListener; // reference to clear death marks
+    private final DeathListener deathListener;
 
     public RespawnListener(PartnerManager partnerManager, ChainedLife plugin, DeathListener deathListener) {
         this.partnerManager = partnerManager;
@@ -26,38 +27,41 @@ public class RespawnListener implements Listener {
         Player player = event.getPlayer();
         int lives = partnerManager.getLives(player);
 
-        // Always clear death tracking once they respawn
+        // If they still have lives, clear death processing for them and their partner (delayed to avoid race)
         if (lives > 0) {
-            deathListener.clearDeathMark(player);
-            Bukkit.getLogger().info("[ChainedLife] Cleared death tracking for " + player.getName());
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                // clear the respawning player's mark
+                deathListener.clearDeathMark(player);
+                // also attempt to clear their partner's mark (safe no-op if partner is null or not marked)
+                Player partner = partnerManager.getPartner(player);
+                if (partner != null) {
+                    deathListener.clearDeathMark(partner);
+                }
+            }, 5L); // small delay to ensure death-cycle finished
         } else {
-            Bukkit.getLogger().info("[ChainedLife] " + player.getName() + " respawned with 0 lives, keeping death mark.");
+            Bukkit.getLogger().info("[ChainedLife] Keeping " + player.getName() + " marked handled (0 lives).");
         }
 
+        // If out of lives, ensure spectator mode is applied
         if (lives <= 0) {
-            // Force spectator if they are out
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                if (player.isOnline()) {
-                    player.setGameMode(GameMode.SPECTATOR);
-                }
+                if (player.isOnline()) player.setGameMode(GameMode.SPECTATOR);
             }, 2L);
             return;
         }
 
-        // Reset player state
+        // restore health / food / saturation
         player.setHealth(player.getMaxHealth());
         player.setFoodLevel(20);
         player.setSaturation(20);
 
-        // Re-chain partner after respawn
+        // after respawn, re-chain and mirror partner state
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             Player partner = partnerManager.getPartner(player);
             if (partner != null && partner.isOnline() && partnerManager.getLives(partner) > 0) {
                 partner.teleport(player.getLocation());
-
                 partnerManager.mirrorState(player);
                 partnerManager.enforceDistance(player);
-
                 String cmd = String.format("chain %s %s", player.getName(), partner.getName());
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
             } else {
