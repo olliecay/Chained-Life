@@ -52,7 +52,6 @@ public class DeathListener implements Listener {
 
         Player partner = partnerManager.getPartner(player);
         if (partner != null && partner.isOnline() && partnerManager.getLives(partner) > 0 && !handledDeaths.contains(partner.getUniqueId())) {
-            // mark partner handled before killing to avoid recursion
             handledDeaths.add(partner.getUniqueId());
             Bukkit.getLogger().info("[ChainedLife] Killing partner " + partner.getName() + " due to " + player.getName() + "'s death");
             Bukkit.getScheduler().runTask(plugin, () -> partner.setHealth(0.0));
