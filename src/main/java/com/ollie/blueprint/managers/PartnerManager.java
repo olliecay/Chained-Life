@@ -113,8 +113,12 @@ public class PartnerManager {
         lives.put(player.getUniqueId(), newVal);
 
         Player partner = getPartner(player);
-        if (partner != null && partner.isOnline()) {
-            lives.put(partner.getUniqueId(), newVal);
+        if (partner != null) {
+            int partnerLives = getLives(partner);
+            // Ensure both share the lower value
+            int syncedLives = Math.min(newVal, partnerLives);
+            lives.put(player.getUniqueId(), syncedLives);
+            lives.put(partner.getUniqueId(), syncedLives);
         }
     }
 

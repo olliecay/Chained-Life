@@ -19,8 +19,8 @@ public class DeathListener implements Listener {
     private final PartnerManager partnerManager;
     private final ChainedLife plugin;
 
-    // Tracks which players have been processed for their current death
-    private final Set<UUID> handledDeaths = new HashSet<>();
+    // Tracks which players have already been processed for a single death event
+    private final Set<UUID> deathProcessing = new HashSet<>();
 
     public DeathListener(PartnerManager partnerManager, ChainedLife plugin) {
         this.partnerManager = partnerManager;
@@ -31,25 +31,25 @@ public class DeathListener implements Listener {
     public void onDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
 
-        int lives = partnerManager.getLives(player);
-        if (lives <= 0) {
-            Bukkit.getLogger().info("[ChainedLife] Ignoring death for " + player.getName() + " (0 lives).");
-            return;
-        }
-
-        // Prevent duplicate handling
-        if (!handledDeaths.add(player.getUniqueId())) {
+        // Prevent re-handling the same death
+        if (!deathProcessing.add(player.getUniqueId())) {
             Bukkit.getLogger().info("[ChainedLife] Skipping duplicate death handling for " + player.getName());
             return;
         }
 
-        // Reduce player’s lives
+        int lives = partnerManager.getLives(player);
+        if (lives <= 0) {
+            Bukkit.getLogger().info("[ChainedLife] " + player.getName() + " is already at 0 lives. Ignoring death.");
+            return;
+        }
+
+        // Reduce player’s life
         partnerManager.reduceLives(player);
         int remainingLives = partnerManager.getLives(player);
 
         Bukkit.getLogger().info("[ChainedLife] " + player.getName() + " died. Lives left: " + remainingLives);
 
-        // Global notification
+        // Notify everyone
         Bukkit.getOnlinePlayers().forEach(p -> {
             p.sendTitle("§cA life was taken...", "§7" + player.getName() + " lost a life!", 10, 70, 20);
             p.playSound(p.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1f, 1f);
@@ -58,21 +58,20 @@ public class DeathListener implements Listener {
         // Handle partner death
         Player partner = partnerManager.getPartner(player);
         if (partner != null && partner.isOnline() && partnerManager.getLives(partner) > 0) {
-            if (handledDeaths.add(partner.getUniqueId())) {
-                Bukkit.getLogger().info("[ChainedLife] Killing partner " + partner.getName() +
-                        " because " + player.getName() + " died.");
+            // Only kill partner if they weren’t already marked as dead in this cycle
+            if (deathProcessing.add(partner.getUniqueId())) {
+                Bukkit.getLogger().info("[ChainedLife] Killing partner " + partner.getName() + " because " + player.getName() + " died.");
                 Bukkit.getScheduler().runTask(plugin, () -> partner.setHealth(0.0));
             }
         }
 
-        // Assign teams
+        // Team assignment based on lives
         String team = switch (remainingLives) {
             case 3 -> "Green";
             case 2 -> "Yellow";
             case 1 -> "Red";
             default -> null;
         };
-
         if (team != null) {
             Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "team join " + team + " " + player.getName());
             if (partner != null && partner.isOnline()) {
@@ -80,7 +79,7 @@ public class DeathListener implements Listener {
             }
         }
 
-        // Handle elimination
+        // Handle elimination when no lives remain
         if (remainingLives <= 0) {
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (player.isOnline()) {
@@ -101,8 +100,8 @@ public class DeathListener implements Listener {
         }
     }
 
-    /** Clear death flag so player can die again */
+    /** Clear tracking on respawn so new deaths are handled correctly */
     public void clearDeathMark(Player player) {
-        handledDeaths.remove(player.getUniqueId());
+        deathProcessing.remove(player.getUniqueId());
     }
 }
