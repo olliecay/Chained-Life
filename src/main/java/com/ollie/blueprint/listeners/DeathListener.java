@@ -19,8 +19,8 @@ public class DeathListener implements Listener {
     private final PartnerManager partnerManager;
     private final ChainedLife plugin;
 
-    // Tracks players processed for the current death-cycle to avoid double-processing / loops
-    private final Set<UUID> deathProcessing = new HashSet<>();
+    // Tracks which players have been processed for their current death
+    private final Set<UUID> handledDeaths = new HashSet<>();
 
     public DeathListener(PartnerManager partnerManager, ChainedLife plugin) {
         this.partnerManager = partnerManager;
@@ -30,56 +30,42 @@ public class DeathListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
-        UUID playerId = player.getUniqueId();
 
-        // If already handling this player in this cycle, skip
-        if (!deathProcessing.add(playerId)) {
+        int lives = partnerManager.getLives(player);
+        if (lives <= 0) {
+            Bukkit.getLogger().info("[ChainedLife] Ignoring death for " + player.getName() + " (0 lives).");
+            return;
+        }
+
+        // Prevent duplicate handling
+        if (!handledDeaths.add(player.getUniqueId())) {
             Bukkit.getLogger().info("[ChainedLife] Skipping duplicate death handling for " + player.getName());
             return;
         }
 
-        int beforeLives = partnerManager.getLives(player);
-        if (beforeLives <= 0) {
-            Bukkit.getLogger().info("[ChainedLife] Ignoring death for " + player.getName() + " (0 lives).");
-            // remove marker because nothing to do
-            deathProcessing.remove(playerId);
-            return;
-        }
-
-        Player partner = partnerManager.getPartner(player);
-        if (partner != null && partner.isOnline()) {
-            deathProcessing.add(partner.getUniqueId()); // mark partner too so their death handler won't double-process
-        }
-
-        Bukkit.getLogger().info("[ChainedLife] Pre-death lives: " + player.getName() + "=" + beforeLives +
-                (partner != null ? (", partner " + partner.getName() + "=" + partnerManager.getLives(partner)) : ""));
-
-        // Decrement lives (PartnerManager.reduceLives will also update the partner's lives if partner is online)
+        // Reduce player’s lives
         partnerManager.reduceLives(player);
-
         int remainingLives = partnerManager.getLives(player);
-        int partnerLives = partner != null ? partnerManager.getLives(partner) : -1;
 
-        Bukkit.getLogger().info("[ChainedLife] Post-death lives: " + player.getName() + "=" + remainingLives +
-                (partner != null ? (", partner " + partner.getName() + "=" + partnerLives) : ""));
+        Bukkit.getLogger().info("[ChainedLife] " + player.getName() + " died. Lives left: " + remainingLives);
 
-        // Notify everyone
+        // Global notification
         Bukkit.getOnlinePlayers().forEach(p -> {
             p.sendTitle("§cA life was taken...", "§7" + player.getName() + " lost a life!", 10, 70, 20);
             p.playSound(p.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1f, 1f);
         });
 
-        // Kill the partner visually if they still have lives > 0 (we already reduced lives above)
+        // Handle partner death
+        Player partner = partnerManager.getPartner(player);
         if (partner != null && partner.isOnline() && partnerManager.getLives(partner) > 0) {
-            Bukkit.getLogger().info("[ChainedLife] Scheduling partner death for " + partner.getName());
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                if (partner.isOnline() && partner.getHealth() > 0) {
-                    partner.setHealth(0.0);
-                }
-            });
+            if (handledDeaths.add(partner.getUniqueId())) {
+                Bukkit.getLogger().info("[ChainedLife] Killing partner " + partner.getName() +
+                        " because " + player.getName() + " died.");
+                Bukkit.getScheduler().runTask(plugin, () -> partner.setHealth(0.0));
+            }
         }
 
-        // Team assignment
+        // Assign teams
         String team = switch (remainingLives) {
             case 3 -> "Green";
             case 2 -> "Yellow";
@@ -94,7 +80,7 @@ public class DeathListener implements Listener {
             }
         }
 
-        // If out of lives, set spectator and unchain after a small delay
+        // Handle elimination
         if (remainingLives <= 0) {
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (player.isOnline()) {
@@ -115,21 +101,8 @@ public class DeathListener implements Listener {
         }
     }
 
-    /**
-     * Clear the death-processing mark so a player can be handled again on future deaths.
-     * Keep this public so RespawnListener can call it.
-     */
+    /** Clear death flag so player can die again */
     public void clearDeathMark(Player player) {
-        if (player == null) return;
-        UUID id = player.getUniqueId();
-        if (deathProcessing.remove(id)) {
-            Bukkit.getLogger().info("[ChainedLife] Cleared deathProcessing for " + player.getName());
-        }
-    }
-
-    // convenience to clear by UUID (optional)
-    public void clearDeathMark(UUID id) {
-        if (id == null) return;
-        deathProcessing.remove(id);
+        handledDeaths.remove(player.getUniqueId());
     }
 }
