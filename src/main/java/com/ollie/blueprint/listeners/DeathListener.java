@@ -16,11 +16,11 @@ import java.util.Set;
 import java.util.UUID;
 
 public class DeathListener implements Listener {
+
     private final PartnerManager partnerManager;
     private final ChainedLife plugin;
-
-    // Tracks which players have already been processed for a single death event
     private final Set<UUID> deathProcessing = new HashSet<>();
+    private final Set<UUID> skipReduce = new HashSet<>();
 
     public DeathListener(PartnerManager partnerManager, ChainedLife plugin) {
         this.partnerManager = partnerManager;
@@ -31,9 +31,13 @@ public class DeathListener implements Listener {
     public void onDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
 
-        // Prevent re-handling the same death
         if (!deathProcessing.add(player.getUniqueId())) {
-            Bukkit.getLogger().info("[ChainedLife] Skipping duplicate death handling for " + player.getName());
+            return;
+        }
+
+        // If this was a forced partner death, skip life reduction
+        if (skipReduce.remove(player.getUniqueId())) {
+            Bukkit.getLogger().info("[ChainedLife] Skipped life reduction for partner " + player.getName());
             return;
         }
 
@@ -43,7 +47,7 @@ public class DeathListener implements Listener {
             return;
         }
 
-        // Reduce player’s life
+        // Reduce player’s life (handles both partners)
         partnerManager.reduceLives(player);
         int remainingLives = partnerManager.getLives(player);
 
@@ -58,14 +62,13 @@ public class DeathListener implements Listener {
         // Handle partner death
         Player partner = partnerManager.getPartner(player);
         if (partner != null && partner.isOnline() && partnerManager.getLives(partner) > 0) {
-            // Only kill partner if they weren’t already marked as dead in this cycle
             if (deathProcessing.add(partner.getUniqueId())) {
                 Bukkit.getLogger().info("[ChainedLife] Killing partner " + partner.getName() + " because " + player.getName() + " died.");
+                skipReduce.add(partner.getUniqueId());
                 Bukkit.getScheduler().runTask(plugin, () -> partner.setHealth(0.0));
             }
         }
 
-        // Team assignment based on lives
         String team = switch (remainingLives) {
             case 3 -> "Green";
             case 2 -> "Yellow";
@@ -79,7 +82,6 @@ public class DeathListener implements Listener {
             }
         }
 
-        // Handle elimination when no lives remain
         if (remainingLives <= 0) {
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (player.isOnline()) {
@@ -98,9 +100,10 @@ public class DeathListener implements Listener {
                 }
             }, 3L);
         }
+
+        Bukkit.getScheduler().runTask(plugin, () -> deathProcessing.remove(player.getUniqueId()));
     }
 
-    /** Clear tracking on respawn so new deaths are handled correctly */
     public void clearDeathMark(Player player) {
         deathProcessing.remove(player.getUniqueId());
     }

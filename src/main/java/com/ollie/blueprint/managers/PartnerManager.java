@@ -35,7 +35,9 @@ public class PartnerManager {
     }
 
     public void addPlayer(Player player) {
-        lives.putIfAbsent(player.getUniqueId(), defaultLives);
+        if (!lives.containsKey(player.getUniqueId())) {
+            lives.put(player.getUniqueId(), defaultLives);
+        }
     }
 
     public void removePlayer(Player player) {
@@ -102,23 +104,21 @@ public class PartnerManager {
     }
 
     public void setLives(Player player, int amount) {
+        Bukkit.getLogger().info("[ChainedLife] Setting " + player.getName() + " lives to " + amount);
         lives.put(player.getUniqueId(), amount);
     }
 
     public void reduceLives(Player player) {
+        Player partner = getPartner(player);
+
         int current = getLives(player);
         if (current <= 0) return;
 
-        int newVal = current - 1;
-        lives.put(player.getUniqueId(), newVal);
+        int newLives = current - 1;
 
-        Player partner = getPartner(player);
+        lives.put(player.getUniqueId(), newLives);
         if (partner != null) {
-            int partnerLives = getLives(partner);
-            // Ensure both share the lower value
-            int syncedLives = Math.min(newVal, partnerLives);
-            lives.put(player.getUniqueId(), syncedLives);
-            lives.put(partner.getUniqueId(), syncedLives);
+            lives.put(partner.getUniqueId(), newLives);
         }
     }
 
