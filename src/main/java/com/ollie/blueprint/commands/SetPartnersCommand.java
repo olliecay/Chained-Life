@@ -45,62 +45,66 @@ public class SetPartnersCommand implements CommandExecutor {
 
         new BukkitRunnable() {
             final Random random = new Random();
+            final int ITERATIONS = 30;
             int ticks = 0;
             Player lastCandidate = null;
-            final int ITERATIONS = 30;
 
             @Override
             public void run() {
                 if (ticks >= ITERATIONS) {
                     Player partner = lastCandidate;
+                    cancel();
+
                     if (partner == null || !partner.isOnline()) {
                         player.sendMessage("§cNo valid partner found.");
-                        cancel();
                         return;
                     }
 
                     for (Player viewer : Bukkit.getOnlinePlayers()) {
-                        String resultLine;
+                        String revealName;
                         if (viewer.equals(player)) {
-                            resultLine = "§eYou ↔ " + partner.getName();
+                            revealName = partner.getName();
                         } else if (viewer.equals(partner)) {
-                            resultLine = "§eYou ↔ " + player.getName();
+                            revealName = player.getName();
                         } else {
-                            resultLine = "§e" + player.getName() + " ↔ " + partner.getName();
+                            revealName = partner.getName();
                         }
-                        viewer.sendTitle("§aPartner Selected!", resultLine, 10, 60, 20);
+
+                        viewer.sendTitle("§a" + revealName, "", 10, 60, 20);
                         viewer.playSound(viewer.getLocation(), Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
                     }
 
-                    partnerManager.switchPartner(player);
+                    new BukkitRunnable() {
+                        @Override
+                        public void run() {
+                            partnerManager.switchPartner(player);
+                            Player newPartner = partnerManager.getPartner(player);
+                            if (newPartner != null && newPartner.isOnline()) {
+                                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "team join Green " + player.getName());
+                                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "team join Green " + newPartner.getName());
+                                player.teleport(newPartner.getLocation());
+                            }
+                        }
+                    }.runTaskLater(plugin, 60L);
 
-                    Player newPartner = partnerManager.getPartner(player);
-                    if (newPartner != null && newPartner.isOnline()) {
-                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "team join Green " + player.getName());
-                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "team join Green " + newPartner.getName());
-                    }
-
-                    cancel();
                     return;
                 }
 
                 lastCandidate = online.get(random.nextInt(online.size()));
+
                 for (Player viewer : Bukkit.getOnlinePlayers()) {
-                    String rollingLine;
-                    if (viewer.equals(player)) {
-                        rollingLine = "§eYou ↔ " + lastCandidate.getName();
-                    } else if (viewer.equals(lastCandidate)) {
-                        rollingLine = "§eYou ↔ " + player.getName();
-                    } else {
-                        rollingLine = "§e" + player.getName() + " ↔ " + lastCandidate.getName();
-                    }
-                    viewer.sendTitle("§aChoosing partner...", rollingLine, 0, 5, 0);
-                    viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.8f, 1.0f);
+                    String rollingName = lastCandidate.getName();
+
+                    viewer.sendTitle("§aYour link is...", "§e" + rollingName, 0, ITERATIONS * 4, 0);
+
+                    float pitch = 0.8f + (float) ticks / ITERATIONS * 0.4f;
+                    viewer.playSound(viewer.getLocation(), Sound.UI_BUTTON_CLICK, 0.8f, pitch);
                 }
 
                 ticks++;
             }
         }.runTaskTimer(plugin, 0L, 4L);
+
         return true;
     }
 }

@@ -17,6 +17,9 @@ commands:
   lives:
     description: Get or set lives for yourself or other players
     usage: /lives <get|set> [player] [amount]
+  boogeyman:
+    description: Manage boogeyman status
+    usage: /boogeyman <start|end> [count]
 
 permissions:
   chainedlife.*:

@@ -3,8 +3,12 @@ package com.ollie.blueprint.managers;
 import com.ollie.blueprint.ChainedLife;
 import org.bukkit.Bukkit;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -17,9 +21,51 @@ public class PartnerManager {
     private final Set<UUID> inSync = ConcurrentHashMap.newKeySet();
     private final ChainedLife plugin;
 
+    private File livesFile;
+    private FileConfiguration livesConfig;
+
     public PartnerManager(int defaultLives, ChainedLife plugin) {
         this.defaultLives = defaultLives;
         this.plugin = plugin;
+
+        createLivesFile();
+        loadLives();
+    }
+
+    private void createLivesFile() {
+        livesFile = new File(plugin.getDataFolder(), "lives.yml");
+        if (!livesFile.exists()) {
+            try {
+                plugin.getDataFolder().mkdirs();
+                livesFile.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        livesConfig = YamlConfiguration.loadConfiguration(livesFile);
+    }
+
+    public void saveLives() {
+        for (Map.Entry<UUID, Integer> entry : lives.entrySet()) {
+            livesConfig.set(entry.getKey().toString(), entry.getValue());
+        }
+        try {
+            livesConfig.save(livesFile);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void loadLives() {
+        if (livesConfig == null) return;
+        for (String key : livesConfig.getKeys(false)) {
+            try {
+                UUID id = UUID.fromString(key);
+                int amount = livesConfig.getInt(key, defaultLives);
+                lives.put(id, amount);
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
     }
 
     public void beginSync(Player player) {
@@ -106,6 +152,7 @@ public class PartnerManager {
     public void setLives(Player player, int amount) {
         Bukkit.getLogger().info("[ChainedLife] Setting " + player.getName() + " lives to " + amount);
         lives.put(player.getUniqueId(), amount);
+        saveLives();
     }
 
     public void reduceLives(Player player) {
@@ -120,6 +167,7 @@ public class PartnerManager {
         if (partner != null) {
             lives.put(partner.getUniqueId(), newLives);
         }
+        saveLives();
     }
 
     public void mirrorState(Player source) {
@@ -151,6 +199,10 @@ public class PartnerManager {
         float finalSat = Math.max(0f, Math.min(finalFood, source.getSaturation()));
         if (Math.abs(partner.getSaturation() - finalSat) > 0.01f) partner.setSaturation(finalSat);
         if (Math.abs(source.getSaturation() - finalSat) > 0.01f) source.setSaturation(finalSat);
+    }
+
+    public void shutdown() {
+        saveLives();
     }
 
     public void clearPartners() {

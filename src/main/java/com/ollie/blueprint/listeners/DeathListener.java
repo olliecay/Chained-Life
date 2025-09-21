@@ -1,6 +1,7 @@
 package com.ollie.blueprint.listeners;
 
 import com.ollie.blueprint.ChainedLife;
+import com.ollie.blueprint.managers.BoogeymanManager;
 import com.ollie.blueprint.managers.PartnerManager;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -18,18 +19,25 @@ import java.util.UUID;
 public class DeathListener implements Listener {
 
     private final PartnerManager partnerManager;
+    private final BoogeymanManager boogeymanManager;
     private final ChainedLife plugin;
     private final Set<UUID> deathProcessing = new HashSet<>();
     private final Set<UUID> skipReduce = new HashSet<>();
 
-    public DeathListener(PartnerManager partnerManager, ChainedLife plugin) {
+    public DeathListener(PartnerManager partnerManager, BoogeymanManager boogeymanManager, ChainedLife plugin) {
         this.partnerManager = partnerManager;
+        this.boogeymanManager = boogeymanManager;
         this.plugin = plugin;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
+        Player killer = event.getEntity().getKiller();
+
+        if (killer != null && boogeymanManager.isBoogeyman(killer)) {
+            boogeymanManager.markCleansed(killer);
+        }
 
         if (!deathProcessing.add(player.getUniqueId())) {
             return;
