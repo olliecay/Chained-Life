@@ -4,6 +4,7 @@ import com.ollie.blueprint.commands.*;
 import com.ollie.blueprint.listeners.*;
 import com.ollie.blueprint.managers.BoogeymanManager;
 import com.ollie.blueprint.managers.PartnerManager;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -20,11 +21,12 @@ public final class ChainedLife extends JavaPlugin {
         partnerManager = new PartnerManager(defaultLives, this);
         boogeymanManager = new BoogeymanManager();
 
-        getCommand("switchpartner").setExecutor(new SwitchPartnerCommand(partnerManager));
-        getCommand("setpartners").setExecutor(new SetPartnersCommand(partnerManager, this));
-        getCommand("endsession").setExecutor(new EndSessionCommand(partnerManager, this));
-        getCommand("lives").setExecutor(new LivesCommand(partnerManager));
-        getCommand("boogey").setExecutor(new BoogeyManCommand(boogeymanManager, partnerManager));
+        // Guard command registration: check plugin.yml presence
+        registerCommand("switchpartner", new SwitchPartnerCommand(partnerManager));
+        registerCommand("setpartners", new SetPartnersCommand(partnerManager, this));
+        registerCommand("endsession", new EndSessionCommand(partnerManager, this));
+        registerCommand("lives", new LivesCommand(partnerManager));
+        registerCommand("boogey", new BoogeyManCommand(boogeymanManager, partnerManager));
 
         DeathListener deathListener = new DeathListener(partnerManager, boogeymanManager, this);
 
@@ -50,12 +52,21 @@ public final class ChainedLife extends JavaPlugin {
         }, this);
     }
 
+    private void registerCommand(String name, CommandExecutor executor) {
+        if (getCommand(name) == null) {
+            getLogger().warning("Command '" + name + "' is not defined in plugin.yml — skipping registration.");
+            return;
+        }
+        getCommand(name).setExecutor(executor);
+    }
+
     @Override
     public void onDisable() {
         if (partnerManager != null) {
-            getLogger().info("[CHAINED-LIFE] Plugin disabled and lives saved in memory.");
+            partnerManager.shutdown();
+            getLogger().info("[CHAINED-LIFE] Plugin disabled and lives saved.");
+        } else {
+            getLogger().info("[CHAINED-LIFE] Plugin disabled (partnerManager was null).");
         }
-
-        partnerManager.shutdown();
     }
 }

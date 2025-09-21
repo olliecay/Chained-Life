@@ -77,7 +77,8 @@ public class SetPartnersCommand implements CommandExecutor {
                     new BukkitRunnable() {
                         @Override
                         public void run() {
-                            partnerManager.switchPartner(player);
+                            // pair the player with the previously revealed partner
+                            partnerManager.pairPlayers(player, partner);
                             Player newPartner = partnerManager.getPartner(player);
                             if (newPartner != null && newPartner.isOnline()) {
                                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "team join Green " + player.getName());
