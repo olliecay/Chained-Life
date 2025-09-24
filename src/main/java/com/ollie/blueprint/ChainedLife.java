@@ -24,6 +24,7 @@ public final class ChainedLife extends JavaPlugin {
         // Guard command registration: check plugin.yml presence
         registerCommand("switchpartner", new SwitchPartnerCommand(partnerManager));
         registerCommand("setpartners", new SetPartnersCommand(partnerManager, this));
+        registerCommand("setfixedpartners", new SetFixedPartnersCommand(partnerManager, this));
         registerCommand("endsession", new EndSessionCommand(partnerManager, this));
         registerCommand("lives", new LivesCommand(partnerManager));
         registerCommand("boogey", new BoogeyManCommand(boogeymanManager, partnerManager));

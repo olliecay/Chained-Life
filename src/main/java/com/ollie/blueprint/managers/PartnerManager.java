@@ -109,7 +109,9 @@ public class PartnerManager {
         }
     }
 
-    /** Pair two players together (unpairs previous partners for them). */
+    /**
+     * Pair two players together (unpairs previous partners for them).
+     */
     public void pairPlayers(Player a, Player b) {
         if (a == null || b == null || a.equals(b)) return;
 

@@ -20,6 +20,9 @@ commands:
   boogeyman:
     description: Manage boogeyman status
     usage: /boogeyman <start|end> [count]
+  setfixedpartners:
+    description: Set fixed partners for Chained-Life
+    usage: /setfixedpartners
 
 permissions:
   chainedlife.*:

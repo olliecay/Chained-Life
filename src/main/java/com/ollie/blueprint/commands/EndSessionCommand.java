@@ -26,13 +26,13 @@ public class EndSessionCommand implements CommandExecutor {
         }
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!player.isOp()) {
-                player.kickPlayer("§cSession is over");
+                player.kickPlayer("§cѕᴇѕѕɪᴏɴ ɪѕ ᴏᴠᴇʀ.");
             }
         }
 
         partnerManager.clearPartners();
 
-        sender.sendMessage("§aSession ended. All non-OP players have been kicked.");
+        sender.sendMessage("§aSession ended. All participants have been kicked.");
         return true;
     }
 }

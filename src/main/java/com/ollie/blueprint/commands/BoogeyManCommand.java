@@ -27,7 +27,7 @@ public class BoogeyManCommand implements CommandExecutor {
 
         switch (args[0].toLowerCase()) {
             case "start" -> {
-                int count = 1;
+                int count = 2;
                 if (args.length > 1) {
                     try {
                         count = Integer.parseInt(args[1]);

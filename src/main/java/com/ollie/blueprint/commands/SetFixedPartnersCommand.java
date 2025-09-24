@@ -14,11 +14,29 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-public class SetPartnersCommand implements CommandExecutor {
+public class SetFixedPartnersCommand implements CommandExecutor {
+    private static final String[][] FIXED_PAIRS = {
+            {"saparata", "Fluixon"},
+            {"LordBurney", "ItzzEnder"},
+            {"PrinceZam", "Dtowncat"},
+            {"cynikka", "Lingulini"},
+            {"Hvyrotation", "KagL"},
+            {"Thomas5200", "Microspr"},
+            {"Zapynubs", "AFreakinTurkey"},
+            {"Bizzy_Brit", "lightrocket2"},
+            {"Benji_Button", "5pyder"},
+            {"Jophiel_", "CallMeCass"},
+            {"Baablu", "Jawunleashed"},
+            {"Whalemilk_", "DaHouse_Panda"},
+            {"ymis", "sidefall"},
+            {"KaNukei", "Lampeyre"},
+            {"magicsings", "meagon"},
+            {"SaltySurvivalist", "awobbuffet"}
+    };
     private final PartnerManager partnerManager;
     private final ChainedLife plugin;
 
-    public SetPartnersCommand(PartnerManager partnerManager, ChainedLife plugin) {
+    public SetFixedPartnersCommand(PartnerManager partnerManager, ChainedLife plugin) {
         this.partnerManager = partnerManager;
         this.plugin = plugin;
     }
@@ -30,19 +48,22 @@ public class SetPartnersCommand implements CommandExecutor {
             return true;
         }
 
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage("§cOnly players can use this command!");
-            return true;
+        for (String[] pair : FIXED_PAIRS) {
+            Player p1 = Bukkit.getPlayerExact(pair[0]);
+            Player p2 = Bukkit.getPlayerExact(pair[1]);
+
+            if (p1 == null || p2 == null) {
+                sender.sendMessage("§eSkipping pair: " + pair[0] + " + " + pair[1] + " (offline)");
+                continue;
+            }
+
+            startRevealAnimation(p1, p2);
         }
 
-        List<Player> online = new ArrayList<>(Bukkit.getOnlinePlayers());
-        online.remove(player);
+        return true;
+    }
 
-        if (online.isEmpty()) {
-            player.sendMessage("§cNo other players to pair with!");
-            return true;
-        }
-
+    private void startRevealAnimation(Player player, Player partner) {
         new BukkitRunnable() {
             final Random random = new Random();
             final int ITERATIONS = 30;
@@ -52,13 +73,7 @@ public class SetPartnersCommand implements CommandExecutor {
             @Override
             public void run() {
                 if (ticks >= ITERATIONS) {
-                    Player partner = lastCandidate;
                     cancel();
-
-                    if (partner == null || !partner.isOnline()) {
-                        player.sendMessage("§cNo valid partner found.");
-                        return;
-                    }
 
                     for (Player viewer : Bukkit.getOnlinePlayers()) {
                         String revealName;
@@ -77,13 +92,13 @@ public class SetPartnersCommand implements CommandExecutor {
                     new BukkitRunnable() {
                         @Override
                         public void run() {
-                            // pair the player with the previously revealed partner
                             partnerManager.pairPlayers(player, partner);
-                            Player newPartner = partnerManager.getPartner(player);
-                            if (newPartner != null && newPartner.isOnline()) {
-//                                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "team join Green " + player.getName());
-//                                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "team join Green " + newPartner.getName());
-                                player.teleport(newPartner.getLocation());
+
+                            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "team join Green " + player.getName());
+                            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "team join Green " + partner.getName());
+
+                            if (player.isOnline() && partner.isOnline()) {
+                                player.teleport(partner.getLocation());
                             }
                         }
                     }.runTaskLater(plugin, 60L);
@@ -91,11 +106,13 @@ public class SetPartnersCommand implements CommandExecutor {
                     return;
                 }
 
-                lastCandidate = online.get(random.nextInt(online.size()));
+                List<Player> online = new ArrayList<>(Bukkit.getOnlinePlayers());
+                if (!online.isEmpty()) {
+                    lastCandidate = online.get(random.nextInt(online.size()));
+                }
 
                 for (Player viewer : Bukkit.getOnlinePlayers()) {
-                    String rollingName = lastCandidate.getName();
-
+                    String rollingName = (lastCandidate != null ? lastCandidate.getName() : partner.getName());
                     viewer.sendTitle("§aYour link is...", "§e" + rollingName, 0, ITERATIONS * 4, 0);
 
                     float pitch = 0.8f + (float) ticks / ITERATIONS * 0.4f;
@@ -105,7 +122,5 @@ public class SetPartnersCommand implements CommandExecutor {
                 ticks++;
             }
         }.runTaskTimer(plugin, 0L, 4L);
-
-        return true;
     }
 }
